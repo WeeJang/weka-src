@@ -23,8 +23,10 @@ package weka.homework;
 
 import weka.classifiers.Classifier;
 import weka.classifiers.Evaluation;
-import weka.classifiers.bayes.NaiveBayesSimple;
+import weka.classifiers.bayes.NaiveBayes;
+import weka.classifiers.lazy.IBk;
 import weka.core.Instances;
+import weka.core.Utils;
 import weka.core.converters.ConverterUtils.DataSource;
 
 
@@ -34,23 +36,34 @@ public class HWEvaluation  {
     private int mNumFolds ;
     private Classifier mClassifier;
 
+    private double[] accuracyOfTestingSet ;
+
     public HWEvaluation(String evaluationDataRoot,int numFolds,Classifier classifier){
         this.mEvaluationDataRoot = evaluationDataRoot;
         this.mNumFolds = numFolds;
         this.mClassifier = classifier;
+        this.accuracyOfTestingSet = new double[numFolds];
     }
+
+    public double[] getAccuracyOfTestingSet(){
+        return this.accuracyOfTestingSet;
+    }
+
 
     public void runEvaluation(){
 
         for(int i = 0 ; i < mNumFolds ; i ++ ){
             try {
-                System.out.println("====================================");
-                System.out.println(mEvaluationDataRoot + "/" + String.valueOf(i) + "_training.arff");
+                System.out.println("do "  + (i + 1) + "th fold cross validation : ");
                 //Read data from arff file
+                System.out.println( "construct training instances from : " + mEvaluationDataRoot + "/" + String.valueOf(i) + "_training.arff");
+                System.out.println( "construct testing instances  from : " + mEvaluationDataRoot + "/" + String.valueOf(i) + "_testing.arff");
+
                 DataSource trainDataSource = new DataSource(
                         mEvaluationDataRoot + "/" + String.valueOf(i) + "_training.arff");
                 DataSource testDataSource = new DataSource(
                         mEvaluationDataRoot + "/" + String.valueOf(i) + "_testing.arff");
+
 
                 Instances trainInstances = trainDataSource.getDataSet();
                 Instances testInstances = testDataSource.getDataSet();
@@ -63,8 +76,8 @@ public class HWEvaluation  {
                 Classifier copiedClassifier = Classifier.makeCopy(mClassifier);
                 copiedClassifier.buildClassifier(trainInstances);
                 evaluation.evaluateModel(copiedClassifier, testInstances);
+                this.accuracyOfTestingSet[i] = evaluation.pctCorrect();
                 System.out.println(evaluation.toSummaryString());
-
             }catch(Exception ex){
                 ex.printStackTrace();
             }
@@ -72,12 +85,35 @@ public class HWEvaluation  {
 
     }
 
-
+    /**
+     * -splitDir /home/jangwee/Desktop/Homework/DataMining/third/split -x 10
+     * @param args
+     */
     public static void main(String[] args){
-        String splitData = HWUtils.rootPath + "/split";
-        Classifier classifier = new NaiveBayesSimple();
-        int numFolds = 10;
-        HWEvaluation hwEvaluation = new HWEvaluation(splitData,numFolds,classifier);
+
+
+        int numFold = 0 ;
+        String splitDataDictionary = null;
+        try {
+            splitDataDictionary = Utils.getOption("splitDir", args);
+            if(splitDataDictionary.length() == 0){
+                throw new Exception("No input arff file given!");
+            }
+
+            String numFoldString = Utils.getOption("x",args);
+            if(numFoldString.length() == 0){
+                numFold = 10;
+            }else{
+                numFold = Integer.parseInt(numFoldString);
+            }
+
+        }catch(Exception ex){
+            ex.printStackTrace();
+        }
+
+        Classifier classifier = new NaiveBayes();
+        //Classifier classifier = new IBk();
+        HWEvaluation hwEvaluation = new HWEvaluation(splitDataDictionary,numFold,classifier);
         hwEvaluation.runEvaluation();
     }
 }

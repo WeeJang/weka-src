@@ -13,11 +13,6 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
-/**
- * Created by jangwee on 15-11-23.
- */
-
 package weka.homework;
 
 /**
@@ -33,6 +28,9 @@ import java.lang.Math;
 import java.util.Arrays;
 
 public class HW2TailedPairedTTest {
+
+
+    public static boolean mDebug = false;
 
     /**
      * get the mean of sample array
@@ -63,13 +61,29 @@ public class HW2TailedPairedTTest {
         return accum / (lengthofarray - 1);
     }
 
+    /**
+     * get the T value of two sample arrays
+     * @param array1 one sample array
+     * @param array2 the other sample array
+     * @param lengthofarray the length of 2 array
+     * @return the T value
+     */
     private static double getTvalue(double[] array1,double[] array2,int lengthofarray){
         double meanOfArray1 = getMeanOfArray(array1,lengthofarray);
         double meanOfArray2 = getMeanOfArray(array2, lengthofarray);
         double varianceOfArray1 = getVarianceOfArray(array1, lengthofarray);
         double varianceOfArray2 = getVarianceOfArray(array2, lengthofarray);
-
         double varianceOfDifferenceArrayMean = Math.pow((varianceOfArray1 + varianceOfArray2) / lengthofarray ,0.5);
+
+        if(mDebug){
+            System.out.println("==========two tailed paired t-test Debug information ==========" +
+                               "\nmeanOfArray1 : " + meanOfArray1 +
+                               "\nmeanOfArray2 : " + meanOfArray2 +
+                               "\nvarianceOfArray1 : " + varianceOfArray1 +
+                               "\nvarianceOfArray2 : " + varianceOfArray2 +
+                               "\nvarianceOfDifferenceArrayMean : " + varianceOfDifferenceArrayMean +
+                               "================================================================");
+        }
         return (meanOfArray1 - meanOfArray2) / varianceOfDifferenceArrayMean ;
     }
 
@@ -90,12 +104,14 @@ public class HW2TailedPairedTTest {
                 numFold = Integer.parseInt(numFoldString);
             }
 
+            mDebug = Utils.getFlag("D",args);
+
         }catch(Exception ex){
             ex.printStackTrace();
         }
 
         Classifier naiveBayes = new NaiveBayes();
-        Classifier kNN = new IBk();
+        Classifier kNN = new IBk(21);
         HWEvaluation naiveBayesEvaluation = new HWEvaluation(splitDataDictionary,numFold,naiveBayes);
         HWEvaluation kNNEvaluation = new HWEvaluation(splitDataDictionary,numFold,kNN);
         naiveBayesEvaluation.runEvaluation();
@@ -103,8 +119,9 @@ public class HW2TailedPairedTTest {
         double[] naiveBayesAccuracy = naiveBayesEvaluation.getAccuracyOfTestingSet();
         double[] kNNBayesAccuracy = kNNEvaluation.getAccuracyOfTestingSet();
         double TValue = getTvalue(naiveBayesAccuracy,kNNBayesAccuracy,numFold);
-        System.out.println(Arrays.toString(naiveBayesAccuracy));
-        System.out.println(Arrays.toString(kNNBayesAccuracy));
-        System.out.println(TValue);
+        System.out.println("=========two tailed paired t-test result ===========");
+        System.out.println("NaiveBayesAccuracyList : " + Arrays.toString(naiveBayesAccuracy));
+        System.out.println("KNNAccuracyList : " + Arrays.toString(kNNBayesAccuracy));
+        System.out.println("Two classifier T value : " + TValue);
     }
 }

@@ -20,15 +20,12 @@
 
 package weka.homework;
 
+import weka.core.Utils;
+
 import java.io.*;
 import java.util.*;
 
 public class HWUtils {
-
-    /**
-     * the root path of file
-     */
-    public static final String rootPath = "/home/jangwee/Desktop/Homework/DataMining/third";
 
     /**
      * convert ".names" file and ".data" file to ".arff" file
@@ -38,26 +35,54 @@ public class HWUtils {
      * @param destArffName the file ending with extension ".arff" which is combined the sourceUCINameFileName and sourceUCIDataFileName
      * @throws FileNotFoundException
      */
-    public static void UCINDF2Arff(String sourceUCINameFileName, String sourceUCIDataFileName, String destArffName) throws FileNotFoundException {
-        File sourceNameFile = new File(sourceUCINameFileName);
-        File sourceDataFile = new File(sourceUCIDataFileName);
+    public static void UCINDF2Arff(String sourceUCINameFilePath, String sourceUCIDataFilePath, String destArffPath) throws FileNotFoundException {
+        File sourceNameFile = new File(sourceUCINameFilePath);
+        File sourceDataFile = new File(sourceUCIDataFilePath);
 
         if (!sourceNameFile.exists()) {
-            throw new FileNotFoundException("File :" + sourceUCINameFileName + "  is not exist");
+            throw new FileNotFoundException("File :" + sourceUCINameFilePath + "  is not exist");
         }
         if (!sourceDataFile.exists()) {
-            throw new FileNotFoundException("File :" + sourceUCIDataFileName + "  is not exist");
+            throw new FileNotFoundException("File :" + sourceUCIDataFilePath + "  is not exist");
         }
 
-        File destArffFile = new File(destArffName);
+        File destArffFile = new File(destArffPath);
         BufferedWriter destBufferedWriter;
         try {
             destBufferedWriter = new BufferedWriter(new FileWriter(destArffFile));
             BufferedReader nameBufferedReader = new BufferedReader(new FileReader(sourceNameFile));
             String readString;
+            StringBuffer flagTextBuffer = new StringBuffer();
+            StringBuffer plaintextBuffer = new StringBuffer();
+            StringBuffer datatextBuffer = new StringBuffer();
+            String labelString = null;
+            flagTextBuffer.append("\n@relation " + sourceUCIDataFilePath.substring(sourceUCIDataFilePath.lastIndexOf("/")+1,
+                    sourceUCIDataFilePath.lastIndexOf(".")));
             try {
                 while ((readString = nameBufferedReader.readLine()) != null) {
-                    destBufferedWriter.write("%" + readString + "\n");
+                    String outputLines = null;
+                    if(readString.startsWith("|") || readString.length() == 0){
+                        outputLines = "\n%" + readString;
+                        plaintextBuffer.append(outputLines);
+                    }else if(!readString.contains(":")){
+                        if(readString.lastIndexOf(".") == readString.length() - 1){
+                            readString = readString.substring(0,readString.length() - 1);
+                        }
+                        labelString = "\n@attribute label {" + readString  + "}" ;
+                    }else{
+                        if(readString.lastIndexOf(".") == readString.length() - 1){
+                            readString = readString.substring(0,readString.length() - 1);
+                        }
+                        System.out.println(readString);
+                        String[] attri = readString.split(":");
+                        if(attri[1].contains("continuous")){
+                            attri[1] = "NUMERIC";
+                            outputLines = "\n@attribute " + attri[0] + " " + attri[1];
+                        }else{
+                            outputLines = "\n@attribute " + attri[0] + " {" + attri[1] + "}";
+                        }
+                        flagTextBuffer.append(outputLines);
+                    }
                 }
                 nameBufferedReader.close();
             } catch (IOException ioex) {
@@ -70,18 +95,13 @@ public class HWUtils {
                 }
             }
 
-            StringBuffer textBuffer = new StringBuffer();
-            textBuffer.append("\n@relation Hayes-Roth");
-            textBuffer.append("\n@attribute hobby {1,2,3}" +
-                    "\n@attribute age {1,2,3,4}" +
-                    "\n@attribute education_level {1,2,3,4}" +
-                    "\n@attribute marital_status {1,2,3,4}" +
-                    "\n@attribute class {1,2,3}");
-
-            textBuffer.append("\n\n@data");
+            flagTextBuffer.append(labelString);
+            flagTextBuffer.append("\n\n@data");
 
             try {
-                destBufferedWriter.write(textBuffer.toString());
+                destBufferedWriter.write(plaintextBuffer.toString());
+                destBufferedWriter.write(flagTextBuffer.toString());
+                destBufferedWriter.write(datatextBuffer.toString());
             } catch (IOException ioex) {
                 ioex.printStackTrace();
             }
@@ -89,7 +109,10 @@ public class HWUtils {
             BufferedReader dataBufferedReader = new BufferedReader(new FileReader(sourceDataFile));
             try {
                 while ((readString = dataBufferedReader.readLine()) != null) {
-                    int startIndex = readString.indexOf(",");
+                    //for hayes-roth.data
+//                    int startIndex = readString.indexOf(",");
+                    //for abalone.data
+                    int startIndex = -1;
                     destBufferedWriter.write("\n" + readString.substring(startIndex + 1));
                 }
                 dataBufferedReader.close();
@@ -113,16 +136,16 @@ public class HWUtils {
         }
     }
 
-    public static void splitTrainAndTestFile(String sourceFileName,String destFileDictionary,int numFolds)throws IOException{
-        File souceFile = new File(sourceFileName);
-        if(!souceFile.exists()){
+    public static void splitTrainAndTestFile(String sourceFileName,String destFileDictionary,int numFolds,long seed)throws IOException{
+        File sourceFile = new File(sourceFileName);
+        if(!sourceFile.exists()){
             throw new IOException("File " + sourceFileName + "is not exist");
         }
 
         File destDic = new File(destFileDictionary);
         destDic.mkdir();
 
-        BufferedReader sourceBufferedReader = new BufferedReader(new FileReader(souceFile));
+        BufferedReader sourceBufferedReader = new BufferedReader(new FileReader(sourceFile));
         String readString ;
         StringBuffer titleAndNameInfo = new StringBuffer();
         ArrayList<String> instanceArray = new ArrayList<>();
@@ -140,7 +163,7 @@ public class HWUtils {
         }
 
         //Random sort the instance array
-        Collections.shuffle(instanceArray);
+        Collections.shuffle(instanceArray,new Random(seed));
 
         long instanceSize = instanceArray.size();
         long sizePerPartition = instanceSize / numFolds + 1 ;
@@ -181,16 +204,83 @@ public class HWUtils {
 
     }
 
+    public static void arrayWriter(ArrayList<Integer> arrayList1,ArrayList<Double> arrayList2,String outputURI){
+        try {
+            BufferedWriter bw = new BufferedWriter(new FileWriter(new File(outputURI)));
+            bw.write(arrayList1.toString() + "\n");
+            bw.write(arrayList2.toString() + "\n");
+            bw.close();
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+    }
 
+
+    /**
+     * -root-path /home/jangwee/Desktop/Homework/DataMining/third/backup -namesfile hayes-roth.names -datafile hayes-roth.data -split-dir split -outArff hayes-roth.arff  -x 10 -s 17
+     * @param args
+     */
     public static void main(String[] args) {
 
-        String nameFileName = rootPath + "/hayes-roth.names";
-        String dataFileName = rootPath + "/hayes-roth.data";
-        String splitDict = rootPath + "/split";
-        String destArffFileName = rootPath + "/hayes-roth.arff";
+        long seed = 0L ;
+        int numFold = 0;
+        String rootPath = null;
+        String splitDirName = null;
+        String namesFileName = null;
+        String dataFileName = null;
+        String arffFileName = null;
         try {
-            UCINDF2Arff(nameFileName, dataFileName, destArffFileName);
-            splitTrainAndTestFile(destArffFileName, splitDict, 10);
+            rootPath = Utils.getOption("root-path", args);
+            if(rootPath.length() == 0){
+                throw new Exception("No  root path of names file & data file  given!");
+            }
+
+            splitDirName = Utils.getOption("split-dir", args);
+            if(splitDirName.length() == 0){
+                throw new Exception("No  name of split data dictionary  given!");
+            }
+
+            namesFileName = Utils.getOption("namesfile", args);
+            if(namesFileName.length() == 0){
+                throw new Exception("No  names file  given!");
+            }
+
+            dataFileName = Utils.getOption("datafile", args);
+            if(dataFileName.length() == 0){
+                throw new Exception("No  data file  given!");
+            }
+
+            arffFileName = Utils.getOption("outArff", args);
+            if(arffFileName.length() == 0){
+                arffFileName = "output.arff";
+            }
+
+            String seedString = Utils.getOption("s",args);
+            if(seedString.length() == 0){
+                seed = 1;
+            }else{
+                seed = Long.parseLong(seedString);
+            }
+
+            String numFoldString = Utils.getOption("x",args);
+            if(numFoldString.length() == 0){
+                numFold = 10;
+            }else{
+                numFold = Integer.parseInt(numFoldString);
+            }
+
+        }catch(Exception ex){
+            ex.printStackTrace();
+        }
+
+        String nameFilePath = rootPath + "/" + namesFileName;
+        String dataFilePath = rootPath + "/" + dataFileName;
+        String splitDict = rootPath + "/" + splitDirName;
+        String destArffFilePath = rootPath + "/" + arffFileName;
+        try {
+            UCINDF2Arff(nameFilePath, dataFilePath, destArffFilePath);
+//            UCINDF2Arff(nameFilePath, "/home/jangwee/Desktop/Homework/DataMining/third/newdata2/adultclear.test", "/home/jangwee/Desktop/Homework/DataMining/third/newdata2/adult_test.arff");
+//            splitTrainAndTestFile(destArffFilePath, splitDict, numFold,seed);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
